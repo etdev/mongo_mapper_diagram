@@ -3,14 +3,19 @@ require "gviz"
 
 module MongoMapperDiagram
   class Generator
-    def initialize(documents = nil, gviz = nil)
-      @documents = documents
-      @gviz = gviz
+    attr_reader :opts
+
+    def initialize(opts = {})
+      @opts = opts
     end
 
-    def generate(filename, extension = :png)
+    def generate(filename, extension = :gif)
       @documents ||= MongoMapperDiagram::Document.all
       @gviz ||= Gviz.new(:G, :digraph)
+
+      restrictions.each do |restriction|
+        @documents = restriction.restrict(@documents)
+      end
 
       @documents.each do |doc|
         @gviz.node symbolize(doc), label: make_label(doc), shape: 'Mrecord'
@@ -27,7 +32,15 @@ module MongoMapperDiagram
       @gviz.save(filename, extension)
     end
 
+    def restrictions
+      [
+        MatchesRestriction.new(opts),
+        AssociatedRestriction.new(opts),
+      ]
+    end
+
     private
+
     def symbolize(document)
       document.to_s.gsub(/::/, '').to_sym
     end
